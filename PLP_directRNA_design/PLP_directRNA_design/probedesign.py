@@ -121,7 +121,7 @@ def extract_seqs(genes, ref, column='Gene'):
 
     # Loop through each unique gene identifier
     for ici in genesexp:
-        icis = '(' + ici + ')'
+        icis = ici + '_i'
         # Find headers that contain the unique gene identifier
         matching = [s for s in headers if icis in s]
         # Add the count of matching headers to lista
@@ -165,7 +165,7 @@ def findtargets (mrna,refpath,ie,outfiles,plp_length=30,gc_min=50,gc_max=65,liga
         if central_condition:
             if GC(mrna.seq[i:i+plp_length]) > gc_min and GC(mrna.seq[i:i+plp_length]) < gc_max:
                 if mrna.seq[i:i+plp_length].count("AAA")==0 and mrna.seq[i:i+plp_length].count("TTT")==0 and mrna.seq[i:i+plp_length].count("GGG")==0 and mrna.seq[i:i+plp_length].count("CCC")==0:
-                    targets = targets.append({'Gene': mrna.id, 'Position': i, 'Sequence':mrna.seq[i:i+plp_length]}, ignore_index=True)
+                    targets = pd.concat([targets, pd.DataFrame([[mrna.id,i,mrna.seq[i:i+plp_length]]],columns=['Gene','Position','Sequence'])],ignore_index = True, sort = False)
                     pato = refpath + '/target_regions_' + mrna.id + '_' + str(ie) + '.csv'
                     outfiles.append(pato)
                     targets.to_csv(pato)
@@ -504,10 +504,11 @@ def build_plps(path,specific_seqs_final,L_probe_library,plp_length,how='start',o
         gene_names_ID_columns = ['gene', "idseq", 'Lbar_ID', 'AffyID']
         gene_names_ID = pd.DataFrame(columns=gene_names_ID_columns)
         ID=on
-        sbh=pd.read_csv(L_probe_library)
+        sbh=pd.read_csv(L_probe_library,sep=";")
+        sbh['number']=list(range(on,on+len(sbh)))
         n=0
         for g in gname:
-            gene_names_ID = gene_names_ID.append({"gene": g, "idseq" : np.array(sbh.loc[sbh['number']==ID+n,'ID_Seq'])[0], "Lbar_ID" : str(np.array(sbh.loc[sbh['number']==ID+n,'Lbar_ID'])[0]), "AffyID" : np.array(sbh.loc[sbh['number']==ID+n,'L_Affy_ID'])[0] }, ignore_index=True)
+            gene_names_ID = pd.concat([gene_names_ID,pd.DataFrame([[g,np.array(sbh.loc[sbh['number']==ID+n,'ID_Seq'])[0],str(np.array(sbh.loc[sbh['number']==ID+n,'Lbar_ID'])[0]),np.array(sbh.loc[sbh['number']==ID+n,'L_Affy_ID'])[0]]], columns=['gene', 'idseq','Lbar_ID','AffyID'])], ignore_index = True)
             n=n+1
         gene_names_ID2=gene_names_ID.set_index("gene", drop = False)
         dictiocodes=dict(zip(sbh['L_Affy_ID'],sbh['Barcode_Combi']))
@@ -524,10 +525,11 @@ def build_plps(path,specific_seqs_final,L_probe_library,plp_length,how='start',o
         gene_names_ID_columns = ['gene', "idseq", 'Lbar_ID', 'AffyID']
         gene_names_ID = pd.DataFrame(columns=gene_names_ID_columns)
         ID=on-len(gname)
-        sbh=pd.read_csv(L_probe_library)
+        sbh=pd.read_csv(L_probe_library,sep=";")
         n=0
         for g in gname:
-            gene_names_ID = gene_names_ID.append({"gene": g, "idseq" : np.array(sbh.loc[sbh['number']==ID+n,'ID_Seq'])[0], "Lbar_ID" : str(np.array(sbh.loc[sbh['number']==ID+n,'Lbar_ID'])[0]), "AffyID" : np.array(sbh.loc[sbh['number']==ID+n,'L_Affy_ID'])[0] }, ignore_index=True)
+            gene_names_ID = pd.concat([gene_names_ID,pd.DataFrame([[g,np.array(sbh.loc[sbh['number']==ID+n,'ID_Seq'])[0],str(np.array(sbh.loc[sbh['number']==ID+n,'Lbar_ID'])[0]),np.array(sbh.loc[sbh['number']==ID+n,'L_Affy_ID'])[0]]], columns=['gene', 'idseq','Lbar_ID','AffyID'])],\
+ ignore_index = True)
             n=n+1
         gene_names_ID2=gene_names_ID.set_index("gene", drop = False)
         dictiocodes=dict(zip(sbh['L_Affy_ID'],sbh['Barcode_Combi']))
@@ -538,7 +540,8 @@ def build_plps(path,specific_seqs_final,L_probe_library,plp_length,how='start',o
         x = Seq(row['Sequence'])
         y = x.reverse_complement()
         y = y.upper()
-        probesP1 = probesP1.append({"Rarm": str(y[0:round(plp_length/2)]), "Larm": str(y[round(plp_length/2):plp_length]), "anchor" : "TGCGTCTATTTAGTGGAGCC", "idseq" : gene_names_ID2.loc[r]['idseq'], "Lbar_ID" : gene_names_ID2.loc[r]['Lbar_ID'], "AffyID" : gene_names_ID2.loc[r]['AffyID'], "Gene" : gene_names_ID2.loc[r]['gene'] }, ignore_index=True)
+        probesP1 = pd.concat([probesP1,pd.DataFrame([[str(y[0:round(plp_length/2)]),str(y[round(plp_length/2):plp_length]),"TGCGTCTATTTAGTGGAGCC",gene_names_ID2.loc[r]['idseq'],gene_names_ID2.loc[r]['Lbar_ID'],gene_names_ID2.loc[r]['AffyID'],gene_names_ID2.loc[r]['gene']]],columns=["Rarm","Larm", "anchor","idseq","Lbar_ID","AffyID","Gene"])], ignore_index=True)
+#        probesP1 = probesP1.append({"Rarm": str(y[0:round(plp_length/2)]), "Larm": str(y[round(plp_length/2):plp_length]), "anchor" : "TGCGTCTATTTAGTGGAGCC", "idseq" : gene_names_ID2.loc[r]['idseq'], "Lbar_ID" : gene_names_ID2.loc[r]['Lbar_ID'], "AffyID" : gene_names_ID2.loc[r]['AffyID'], "Gene" : gene_names_ID2.loc[r]['gene'] }, ignore_index=True)
         n=n+1
 
     print ("I just processed",n,"unique target sequences. I am done")
@@ -555,7 +558,8 @@ def build_plps(path,specific_seqs_final,L_probe_library,plp_length,how='start',o
         capt = pad.sequence
         rnabase = (capt[-1])
         plp = (capt [0:-1]+"r"+rnabase)
-        rnaprobes.append (plp)
+        rnaprobes = np.append(rnaprobes, plp)
+#        rnaprobes = rnaprobes.append(plp)
         #print (plp)
     #print (rnaprobes)
     probes["sequence"] = rnaprobes
